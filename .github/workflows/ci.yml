@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        sanitizers: [none, asan-ubsan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
+          else
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          fi
+
+      - name: Configure
+        run: |
+          SAN_FLAGS=""
+          if [ "${{ matrix.sanitizers }}" = "asan-ubsan" ]; then
+            SAN_FLAGS="-DPERENNIS_ENABLE_ASAN=ON -DPERENNIS_ENABLE_UBSAN=ON"
+          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug $SAN_FLAGS
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+  clang-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install clang-tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPERENNIS_WARNINGS_AS_ERRORS=OFF
+
+      - name: Run clang-tidy
+        run: |
+          find tests -name '*.cpp' | xargs clang-tidy -p build --header-filter='include/perennis/.*'
