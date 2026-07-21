@@ -12,9 +12,9 @@
 
 Existing production inference engines (vLLM, SGLang, TensorRT-LLM, LMDeploy) were designed for a chatbot-shaped workload: one prompt in, one completion out, requests are largely independent, and the "session" (if it exists) is synthesized by replaying history on every turn. This assumption is quietly breaking as workloads shift from chat to agents.
 
-This project is a ground-up inference engine that treats **the agent session as the primary object of scheduling and caching**, not the request. It is a personal project designed to (a) rebuild first-principles C++ fluency to interview level, (b) provide deep hands-on experience with the full modern LLM inference stack, and (c) make a defensible contribution to an open, active problem in ML systems.
+This project is a ground-up inference engine that treats **the agent session as the primary object of scheduling and caching**, not the request. It is a personal project designed to (a) provide deep hands-on experience with the full modern LLM inference stack, building on real, production-grade primitives (ggml) rather than reinventing them, and (b) make a defensible contribution to an open, active problem in ML systems.
 
-The project is scoped in phases so that each stopping point produces an independently valuable artifact: a small tensor library, a working single-request CPU engine, a minimal serving stack, a session-native prototype, and eventually a distributed system.
+The project is scoped in phases so that each stopping point produces an independently valuable artifact: a ggml-based tensor foundation, a working single-request CPU engine, a minimal serving stack, a session-native prototype, and eventually a distributed system.
 
 ---
 
@@ -102,27 +102,22 @@ Each box is roughly one phase of work.
 
 Each phase produces a shippable artifact and can be a stopping point. Estimated durations assume ~10 hrs/week of focused effort alongside a full-time role.
 
-### Phase 1 — C++ Foundations via Tensor Library (Months 1–3)
+### Phase 1 — Tensor Foundations on ggml (Months 1–3)
 
-**Goal:** rebuild production C++ fluency to interview level, using a real target (a tensor library) rather than toy exercises.
+**Goal:** stand up a solid C++ project foundation (build system, testing, CI, sanitizers) directly on [ggml](https://github.com/ggml-org/ggml) rather than hand-rolling tensor/memory primitives, so later phases can move straight to model loading and inference instead of re-deriving infrastructure ggml already provides.
 
 **Scope:**
-- Custom memory arena / allocator with alignment and RAII lifetime
-- Templated `Tensor<T>` supporting `float`, `half`, `int8`
-- Rule of 5 implemented explicitly (copy/move ctors, assignment, dtor)
-- Operator overloading (`+`, `*`, `[]`, `<<`)
-- Custom iterator + `std::algorithm` interop
-- Polymorphic op dispatch (virtual `Op` base)
-- Exception hierarchy with strong exception safety on ops
-- Const-correctness pass
-- CMake, GoogleTest, ASan, UBSan, clang-tidy in CI
+- Vendor ggml as a git submodule (`third_party/ggml`), wired into the CMake build
+- Thin `perennis` wrapper layer around ggml's `ggml_context`, `ggml_tensor`, and graph-build/compute APIs as needed by later phases
+- CMake, GoogleTest, ASan, UBSan, clang-tidy in CI, scoped so perennis-owned code stays warnings-clean without imposing perennis's strict flags on vendored ggml sources
+- Smoke tests exercising tensor allocation and graph compute (add/mul) through ggml to validate the integration
 
 **Success criteria:**
-- Library builds clean on gcc + clang with `-Wall -Wextra -Wpedantic`
-- Full test coverage, zero sanitizer warnings
-- README with an API tour
+- Project builds clean on gcc + clang with `-Wall -Wextra -Wpedantic` for perennis-owned code
+- ggml submodule builds and links correctly in CI, including sanitizer builds
+- README with an API tour of the ggml-based foundation
 
-**Interview value:** covers nearly every C++ fundamental in one artifact you can walk through. This alone materially strengthens the C++ side of your interview surface.
+**Interview value:** demonstrates the ability to integrate and build on a real, widely-used systems library (the same one underpinning llama.cpp) rather than reimplementing it — a more realistic reflection of how production ML systems get built.
 
 ---
 
@@ -258,7 +253,7 @@ Each phase produces a shippable artifact and can be a stopping point. Estimated 
 | Job search interrupts progress | The project is a means, not an end. Take offers that put you inside real inference stacks even if you shelve this |
 | Frontier moves faster than the plan | Reread and re-scope quarterly. If vLLM ships session-native serving, pivot the novel contribution |
 | No GPU access limits Phase 6 | Phases 1–5 have real value CPU-only. Phase 6 becomes "study" not "ship" |
-| Complexity trap: over-engineering Phase 1 tensor lib | Time-box each phase; ship rough, iterate |
+| Complexity trap: over-engineering the perennis wrapper around ggml | Keep the wrapper thin; reach for ggml's own APIs directly before adding abstraction |
 | Motivation cliff mid-Phase-4 | Write the paper-style abstract up front; work backwards from it as a north star |
 
 ---
@@ -286,6 +281,6 @@ Read the vLLM and SGLang GitHub issue trackers monthly. They telegraph what's ab
 ## 10. Immediate Next Steps
 
 1. Pick a name and register the repo (public from day one).
-2. Scaffold Phase 1: CMake layout, tensor class skeleton, memory arena stub, GoogleTest wiring.
+2. Scaffold Phase 1: CMake layout, ggml submodule wiring, GoogleTest wiring.
 3. Write the first phase-end abstract: one paragraph describing what "Phase 1 complete" looks like as a blog post you'd link on your resume.
 4. Block a recurring calendar hold for the weekly work session. This is the single strongest predictor of whether the project happens.
