@@ -25,7 +25,7 @@ cmake -S . -B build -DPERENNIS_ENABLE_ASAN=ON -DPERENNIS_ENABLE_UBSAN=ON
 
 ## API tour
 
-`perennis` builds directly on [ggml](https://github.com/ggml-org/ggml) (vendored under `third_party/ggml`) for tensor allocation, memory contexts, and the compute graph. Include `perennis/perennis.hpp`, which currently just re-exports `ggml.h`.
+`perennis` builds directly on [ggml](https://github.com/ggml-org/ggml) (vendored under `third_party/ggml`) for tensor allocation, memory contexts, and the compute graph(might be changed). Include `perennis/perennis.hpp`, which currently just re-exports `ggml.h`.
 
 ```cpp
 #include "perennis/perennis.hpp"
